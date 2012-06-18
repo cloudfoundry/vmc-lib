@@ -42,6 +42,9 @@ module CFoundry
     # Application debug mode.
     attr_accessor :debug_mode
 
+    # Application console enabled?
+    attr_accessor :console
+
     # Application state.
     attr_accessor :state
     alias_method :status, :state
@@ -110,7 +113,8 @@ module CFoundry
     def update!(what = {})
       # TODO: hacky; can we not just set in meta field?
       # we write to manifest["debug"] but read from manifest["meta"]["debug"]
-      what[:debug] = debug_mode
+      what["debug"] = debug_mode
+      what["console"] = console
 
       @client.rest.update_app(@name, manifest.merge(what))
       @manifest = nil
@@ -161,6 +165,7 @@ module CFoundry
     # Check that all application instances are running.
     def healthy?
       # invalidate cache so the check is fresh
+      # TODO: fix race condition; this shouldn't mutate this object
       @manifest = nil
       health == "RUNNING"
     end
@@ -281,6 +286,19 @@ module CFoundry
     def debug_mode=(v) # :nodoc:
       @manifest ||= {}
       @manifest["debug"] = v
+    end
+
+
+    # Application console enabled?
+    def console
+      manifest.fetch("console") do
+        manifest["meta"] && manifest["meta"]["console"]
+      end
+    end
+
+    def console=(v) # :nodoc:
+      @manifest ||= {}
+      @manifest["console"] = !!v
     end
 
 
