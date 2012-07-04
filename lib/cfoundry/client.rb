@@ -104,8 +104,7 @@ module CFoundry
 
     # Authenticate with the target. Sets the client token.
     def login(email, password)
-      @rest.token =
-        @rest.create_token({ :password => password }, email)["token"]
+      @rest.uaa.authorize(email, password)
     end
 
     # Clear client token. No requests are made for this.
