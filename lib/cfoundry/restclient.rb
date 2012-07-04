@@ -1,6 +1,7 @@
 require "json"
 
 require "cfoundry/baseclient"
+require "cfoundry/uaaclient"
 
 
 module CFoundry
@@ -25,6 +26,15 @@ module CFoundry
 
     def system_runtimes
       get("info", "runtimes", nil => :json)
+    end
+
+    # The UAA used for this client.
+    def uaa
+      return @uaa if @uaa
+
+      @uaa = UAAClient.new(info["authorization_endpoint"])
+      @uaa.trace = @trace
+      @uaa
     end
 
     # Users
