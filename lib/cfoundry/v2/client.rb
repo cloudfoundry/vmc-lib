@@ -107,6 +107,20 @@ module CFoundry::V2
       !!@base.token
     end
 
+    def register(
+        admin_secret, email, password,
+        username = email, given_name = email, family_name = email)
+      uaa = CFoundry::UAAClient.new(@base.uaa.target, "admin")
+      uaa.trace = trace
+      uaa.basic_authorize(admin_secret)
+
+      data =
+        uaa.create_user(
+          email, password, username, given_name, family_name)
+
+      user(data[:id])
+    end
+
 
     [:app, :organization, :app_space, :service, :service_binding,
       :service_instance, :user, :runtime, :framework].each do |singular|
