@@ -1,4 +1,7 @@
+require "base64"
+
 require "cfoundry/baseclient"
+
 
 module CFoundry
   class UAAClient < BaseClient
@@ -33,8 +36,39 @@ module CFoundry
           :params => query)[:location])
     end
 
+    def basic_authorize(password)
+      before = @token
+
+      @token = "Basic #{Base64.encode64("#@client_id:#{password}")}"
+
+      body =
+        post(
+          { :grant_type => "client_credentials" },
+          "oauth", "token",
+          :form => :json)
+
+      @token = "#{body[:token_type]} #{body[:access_token]}"
+    rescue
+      @token = before
+      raise
+    end
+
     def users
       get("Users", nil => :json)
+    end
+
+    def create_user(
+        email, password,
+        username = email, given_name = email, family_name = email)
+      post({
+        :userName => username,
+        :password => password,
+        :emails => [{:value => email}],
+        :name => {
+          :givenName => given_name,
+          :familyName => given_name
+        }
+      }, "User", :json => :json)
     end
 
     private
@@ -43,7 +77,7 @@ module CFoundry
       json = accept == :json
 
       case response.code
-      when 200, 204, 302
+      when 200, 201, 204, 302
         if accept == :headers
           return response.headers
         end
