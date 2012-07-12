@@ -63,6 +63,10 @@ module CFoundry::V2
       user(@base.token_data[:user_id])
     end
 
+    # Cloud metadata
+    def info
+      @base.info
+    end
 
     # Login prompts
     def login_prompts

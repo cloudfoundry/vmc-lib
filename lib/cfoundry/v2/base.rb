@@ -42,13 +42,19 @@ module CFoundry::V2
     def uaa
       return @uaa unless @uaa.nil?
 
-      endpoint = ENV["CFOUNDRY_UAA"] || info[:authorization_endpoint]
+      endpoint = info[:authorization_endpoint]
       return @uaa = false unless endpoint
 
       @uaa = CFoundry::UAAClient.new(endpoint)
       @uaa.trace = @trace
       @uaa.token = @token
       @uaa
+    end
+
+
+    # Cloud metadata
+    def info
+      get("info", nil => :json)
     end
 
 
