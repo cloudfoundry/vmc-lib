@@ -1,4 +1,5 @@
 require "json"
+require "base64"
 
 require "cfoundry/baseclient"
 require "cfoundry/uaaclient"
