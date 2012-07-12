@@ -190,6 +190,20 @@ module CFoundry::V2
       end
     end
 
+    def users(admin_secret)
+      uaa = CFoundry::UAAClient.new(@base.uaa.target, "admin")
+      uaa.trace = trace
+      uaa.basic_authorize(admin_secret)
+
+      # TODO: fuse pagination
+      uaa.users[:resources].collect do |u|
+        user = user(u[:id])
+        user.emails = u[:emails]
+        user.name = u[:name]
+        user
+      end
+    end
+
     alias :spaces :app_spaces
     alias :space :app_space
 

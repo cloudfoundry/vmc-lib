@@ -54,7 +54,7 @@ module CFoundry
     end
 
     def users
-      get("Users", nil => :json)
+      get("Users", nil => :json, :params => { :attributes => "id,emails,name" })
     end
 
     def create_user(
