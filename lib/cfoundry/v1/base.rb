@@ -1,10 +1,13 @@
 require "json"
+require "base64"
 
 require "cfoundry/baseclient"
 require "cfoundry/uaaclient"
 
+require "cfoundry/errors"
+
 module CFoundry::V1
-  class Base < BaseClient
+  class Base < CFoundry::BaseClient
     attr_accessor :target, :token, :proxy, :trace
 
     def initialize(
@@ -14,14 +17,24 @@ module CFoundry::V1
       @token = token
     end
 
-    # Cloud metadata
-    def system_services
-      get("info", "services", nil => :json)
+
+    # grab the metadata from a token that looks like:
+    #
+    # bearer (base64 ...)
+    def token_data
+      return @token_data if @token_data
+
+      tok = Base64.decode64(@token.sub(/^bearer\s+/, ""))
+      tok.sub!(/\{.+?\}/, "") # clear algo
+      @token_data = JSON.parse(tok[/\{.+?\}/], :symbolize_names => true)
     end
 
-    def system_runtimes
-      get("info", "runtimes", nil => :json)
+    # invalidate token data when changing token
+    def token=(t)
+      @token_data = nil
+      @token = t
     end
+
 
     # The UAA used for this client.
     #
@@ -29,12 +42,27 @@ module CFoundry::V1
     def uaa
       return @uaa unless @uaa.nil?
 
-      endpoint = ENV["CFOUNDRY_UAA"] || info[:authorization_endpoint]
+      endpoint = info[:authorization_endpoint]
       return @uaa = false unless endpoint
 
       @uaa = CFoundry::UAAClient.new(endpoint)
       @uaa.trace = @trace
+      @uaa.token = @token
       @uaa
+    end
+
+
+    # Cloud metadata
+    def info
+      get("info", nil => :json)
+    end
+
+    def system_services
+      get("info", "services", nil => :json)
+    end
+
+    def system_runtimes
+      get("info", "runtimes", nil => :json)
     end
 
     # Users
