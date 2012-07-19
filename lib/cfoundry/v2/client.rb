@@ -122,6 +122,12 @@ module CFoundry::V2
       end
     end
 
+    def space_by_name(name)
+      current_organization.spaces.find do |s|
+        s.name == name
+      end
+    end
+
 
     [ :app, :organization, :space, :user, :runtime, :framework,
       :service, :service_plan, :service_binding, :service_instance
