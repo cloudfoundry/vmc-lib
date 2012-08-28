@@ -9,10 +9,10 @@ module CFoundry::V2
     to_many   :audited_organizations, :as => :organization
     to_many   :managed_spaces, :as => :space
     to_many   :audited_spaces, :as => :space
-    attribute :admin
+    attribute :admin, :boolean
     to_one    :default_space, :as => :space
 
-    attribute :guid # guid is explicitly set for users
+    attribute :guid, :string # guid is explicitly set for users
 
     def guid
       @guid
@@ -24,6 +24,10 @@ module CFoundry::V2
     end
 
     alias :admin? :admin
+
+    def change_password!(new, old)
+      @client.base.uaa.change_password(@guid, new, old)
+    end
 
     # optional metadata from UAA
     attr_accessor :emails, :name

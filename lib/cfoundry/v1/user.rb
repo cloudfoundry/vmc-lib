@@ -67,6 +67,11 @@ module CFoundry::V1
       manifest[:password] = str
     end
 
+    def change_password!(new)
+      self.password = new
+      update!
+    end
+
     private
 
     def manifest
