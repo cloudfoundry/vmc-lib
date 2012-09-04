@@ -195,6 +195,115 @@ module CFoundry::V2
       FileUtils.rm_rf(tmpdir) if tmpdir
     end
 
+    # Retrieve file listing under path for the first instance of the application.
+    #
+    # [path]
+    #   A sequence of strings representing path segments.
+    #
+    #   For example, <code>files("foo", "bar")</code> for +foo/bar+.
+    def files(*path)
+      Instance.new(self, 0, @client).files(*path)
+    end
+
+    # Retrieve file contents for the first instance of the application.
+    #
+    # [path]
+    #   A sequence of strings representing path segments.
+    #
+    #   For example, <code>file("foo", "bar")</code> for +foo/bar+.
+    def file(*path)
+      Instance.new(self, 0, @client).file(*path)
+    end
+
+    # Class represnting a running instance of an application.
+    class Instance
+      # The application this instance belongs to.
+      attr_reader :app
+
+      # Application instance identifier.
+      attr_reader :id
+
+      # Create an Instance object.
+      #
+      # You'll usually call App#instances instead
+      def initialize(app, id, client, manifest = {})
+        @app = app
+        @id = id
+        @client = client
+        @manifest = manifest
+      end
+
+      # Show string representing the application instance.
+      def inspect
+        "#<App::Instance '#{@app.name}' \##@id>"
+      end
+
+      # Instance state.
+      def state
+        @manifest[:state]
+      end
+      alias_method :status, :state
+
+      # Instance start time.
+      def since
+        Time.at(@manifest[:since])
+      end
+
+      # Instance debugger data. If instance is in debug mode, returns a hash
+      # containing :ip and :port keys.
+      def debugger
+        return unless @manifest[:debug_ip] and @manifest[:debug_port]
+
+        { :ip => @manifest[:debug_ip],
+          :port => @manifest[:debug_port]
+        }
+      end
+
+      # Instance console data. If instance has a console, returns a hash
+      # containing :ip and :port keys.
+      def console
+        return unless @manifest[:console_ip] and @manifest[:console_port]
+
+        { :ip => @manifest[:console_ip],
+          :port => @manifest[:console_port]
+        }
+      end
+
+      # True if instance is starting or running, false if it's down or
+      # flapping.
+      def healthy?
+        case state
+        when "STARTING", "RUNNING"
+          true
+        when "DOWN", "FLAPPING"
+          false
+        end
+      end
+
+      # Retrieve file listing under path for this instance.
+      #
+      # [path]
+      #   A sequence of strings representing path segments.
+      #
+      #   For example, <code>files("foo", "bar")</code> for +foo/bar+.
+      def files(*path)
+        @client.base.files(@app.guid, @id, *path).split("\n").collect do |entry|
+          path + [entry.split(/\s+/, 2)[0]]
+        end
+      end
+
+      # Retrieve file contents for this instance.
+      #
+      # [path]
+      #   A sequence of strings representing path segments.
+      #
+      #   For example, <code>files("foo", "bar")</code> for +foo/bar+.
+      def file(*path)
+        @client.base.files(@app.guid, @id, *path)
+      end
+    end
+
+
     private
 
     # Minimum size for an application payload to bother checking resources.
