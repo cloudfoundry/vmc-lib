@@ -36,6 +36,16 @@ module CFoundry::V2
 
     private :environment_json, :environment_json=
 
+    def instances
+      @client.base.instances(@guid).collect do |i, m|
+        Instance.new(@name, i, @client, m)
+      end
+    end
+
+    def stats
+      @client.base.stats(@guid)
+    end
+
     def services
       service_bindings.collect(&:service_instance)
     end
