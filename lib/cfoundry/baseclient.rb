@@ -101,6 +101,9 @@ module CFoundry
 
       before = Time.now
 
+      proxy_uri = URI.parse(req[:url]).find_proxy()
+      RestClient.proxy = proxy_uri.to_s if proxy_uri
+
       RestClient::Request.execute(req) do |response, request|
         time = Time.now - before
 
