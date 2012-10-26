@@ -170,7 +170,8 @@ module CFoundry::V1
       if s == "STARTED"
         healthy_count = running_instances
         expected = total_instances
-        if healthy_count && expected > 0
+
+        if expected > 0
           ratio = healthy_count / expected.to_f
           if ratio == 1.0
             "RUNNING"
