@@ -41,7 +41,21 @@ module CFoundry::V2
         @defaults ||= {}
       end
 
+      def attributes
+        @attributes ||= {}
+      end
+
+      def to_one_relations
+        @to_one_relations ||= {}
+      end
+
+      def to_many_relations
+        @to_many_relations ||= {}
+      end
+
       def attribute(name, type, opts = {})
+        attributes[name] = opts
+
         default = opts[:default]
 
         if has_default = opts.key?(:default)
@@ -49,13 +63,17 @@ module CFoundry::V2
         end
 
         define_method(name) {
-          manifest[:entity][name] || default
+          return @cache[name] if @cache.key?(name)
+
+          @cache[name] = manifest[:entity][name] || default
         }
 
         define_method(:"#{name}=") { |val|
           unless has_default && val == default
             Model.validate_type(val, type)
           end
+
+          @cache[name] = val
 
           @manifest ||= {}
           @manifest[:entity] ||= {}
@@ -73,6 +91,8 @@ module CFoundry::V2
       end
 
       def to_one(name, opts = {})
+        to_one_relations[name] = opts
+
         obj = opts[:as] || name
         kls = obj.to_s.capitalize.gsub(/(.)_(.)/) do
           $1 + $2.upcase
@@ -85,13 +105,16 @@ module CFoundry::V2
         end
 
         define_method(name) {
-          if @manifest && @manifest[:entity].key?(name)
-            @client.send(:"make_#{obj}", @manifest[:entity][name])
-          elsif url = send("#{name}_url")
-            @client.send(:"#{obj}_from", url, opts[:depth] || 1)
-          else
-            default
-          end
+          return @cache[name] if @cache.key?(name)
+
+          @cache[name] =
+            if @manifest && @manifest[:entity].key?(name)
+              @client.send(:"make_#{obj}", @manifest[:entity][name])
+            elsif url = send("#{name}_url")
+              @client.send(:"#{obj}_from", url, opts[:depth] || 1)
+            else
+              default
+            end
         }
 
         define_method(:"#{name}_url") {
@@ -103,6 +126,8 @@ module CFoundry::V2
             Model.validate_type(x, CFoundry::V2.const_get(kls))
           end
 
+          @cache[name] = x
+
           @manifest ||= {}
           @manifest[:entity] ||= {}
           @manifest[:entity][:"#{name}_guid"] =
@@ -111,6 +136,8 @@ module CFoundry::V2
       end
 
       def to_many(plural, opts = {})
+        to_many_relations[plural] = opts
+
         singular = plural.to_s.sub(/s$/, "").to_sym
 
         object = opts[:as] || singular
@@ -121,6 +148,10 @@ module CFoundry::V2
         end
 
         define_method(plural) { |*args|
+          if cache = @cache[plural]
+            return cache
+          end
+
           depth, query = args
 
           if @manifest && @manifest[:entity].key?(plural) && !depth
@@ -132,15 +163,17 @@ module CFoundry::V2
               objs = objs.select { |o| o[:entity][find_by] == find_val }
             end
 
-            objs.collect do |json|
-              @client.send(:"make_#{object}", json)
-            end
+            @cache[plural] =
+              objs.collect do |json|
+                @client.send(:"make_#{object}", json)
+              end
           else
-            @client.send(
-              :"#{plural_object}_from",
-              "/v2/#{object_name}s/#@guid/#{plural}",
-              depth || opts[:depth],
-              query)
+            @cache[plural] =
+              @client.send(
+                :"#{plural_object}_from",
+                "/v2/#{object_name}s/#@guid/#{plural}",
+                depth || opts[:depth],
+                query)
           end
         }
 
@@ -149,8 +182,11 @@ module CFoundry::V2
         }
 
         define_method(:"add_#{singular}") { |x|
-          # TODO: reflect this change in the app manifest?
           Model.validate_type(x, CFoundry::V2.const_get(kls))
+
+          if cache = @cache[plural]
+            cache << x unless cache.include?(x)
+          end
 
           @client.base.request_path(
             Net::HTTP::Put,
@@ -159,8 +195,11 @@ module CFoundry::V2
         }
 
         define_method(:"remove_#{singular}") { |x|
-          # TODO: reflect this change in the app manifest?
           Model.validate_type(x, CFoundry::V2.const_get(kls))
+
+          if cache = @cache[plural]
+            cache.delete(x)
+          end
 
           @client.base.request_path(
             Net::HTTP::Delete,
@@ -171,25 +210,76 @@ module CFoundry::V2
         define_method(:"#{plural}=") { |xs|
           Model.validate_type(xs, [CFoundry::V2.const_get(kls)])
 
+          @cache[plural] = xs
+
           @manifest ||= {}
           @manifest[:entity] ||= {}
           @manifest[:entity][:"#{singular}_guids"] =
             @diff[:"#{singular}_guids"] = xs.collect(&:guid)
         }
       end
+
+      def has_summary(actions = {})
+        define_method(:summary) do
+          @client.base.request_path(
+            Net::HTTP::Get,
+            ["v2", "#{object_name}s", @guid, "summary"],
+            :accept => :json)
+        end
+
+        define_method(:summarize!) do |*args|
+          body, _ = args
+
+          body ||= summary
+
+          body.each do |key, val|
+            if act = actions[key]
+              instance_exec(val, &act)
+
+            elsif self.class.attributes[key]
+              self.send(:"#{key}=", val)
+
+            elsif self.class.to_many_relations[key]
+              singular = key.to_s.sub(/s$/, "").to_sym
+
+              vals = val.collect { |sub|
+                obj = @client.send(singular, sub[:guid], true)
+                obj.summarize! sub
+                obj
+              }
+
+              self.send(:"#{key}=", vals)
+
+            elsif self.class.to_one_relations[key]
+              obj = @client.send(key, val[:guid], true)
+              obj.summarize! val
+
+              self.send(:"#{key}=", obj)
+            end
+          end
+
+          nil
+        end
+      end
     end
 
-    attr_reader :guid
+    attr_accessor :guid, :cache
 
-    def initialize(guid, client, manifest = nil)
+    def initialize(guid, client, manifest = nil, partial = false)
       @guid = guid
       @client = client
       @manifest = manifest
+      @partial = partial
+      @cache = {}
       @diff = {}
     end
 
     def manifest
       @manifest ||= @client.base.send(object_name, @guid)
+    end
+
+    def partial?
+      @partial
     end
 
     def inspect
@@ -205,6 +295,7 @@ module CFoundry::V2
 
     def invalidate!
       @manifest = nil
+      @partial = false
       @diff = {}
     end
 

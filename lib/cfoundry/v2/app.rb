@@ -35,6 +35,43 @@ module CFoundry::V2
 
     scoped_to_space
 
+    has_summary :urls => proc { |x| self.cache[:uris] = x },
+      :running_instances => proc { |x|
+        self.cache[:running_instances] = x
+      },
+
+      # TODO: remove these when cc consistently returns nested hashes
+      :framework_guid => proc { |x|
+        if f = self.cache[:framework]
+          f.guid = x
+        else
+          self.framework = @client.framework(x, true)
+        end
+      },
+      :framework_name => proc { |x|
+        if f = self.cache[:framework]
+          f.name = x
+        else
+          self.framework = @client.framework(nil, true)
+          self.framework.name = x
+        end
+      },
+      :runtime_guid => proc { |x|
+        if f = self.cache[:runtime]
+          f.guid = x
+        else
+          self.runtime = @client.runtime(x, true)
+        end
+      },
+      :runtime_name => proc { |x|
+        if f = self.cache[:runtime]
+          f.name = x
+        else
+          self.runtime = @client.runtime(nil, true)
+          self.runtime.name = x
+        end
+      }
+
     alias :total_instances :instances
     alias :total_instances= :instances=
 
@@ -81,6 +118,8 @@ module CFoundry::V2
     end
 
     def uris
+      return @cache[:uris] if @cache[:uris]
+
       routes.collect do |r|
         "#{r.host}.#{r.domain.name}"
       end
@@ -121,6 +160,10 @@ module CFoundry::V2
     alias :create_route :create_routes
 
     def uri
+      if uris = @cache[:uris]
+        return uris.first
+      end
+
       if route = routes.first
         "#{route.host}.#{route.domain.name}"
       end
@@ -175,6 +218,8 @@ module CFoundry::V2
     end
 
     def running_instances
+      return @cache[:running_instances] if @cache[:running_instances]
+
       running = 0
 
       instances.each do |i|
