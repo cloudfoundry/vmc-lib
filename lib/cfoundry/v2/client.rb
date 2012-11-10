@@ -168,7 +168,7 @@ module CFoundry::V2
       define_method(singular) do |*args|
         guid, _ = args
 
-        x = klass.new(guid, self)
+        x = klass.new(guid, self, nil)
 
         # when creating an object, automatically set the org/space
         unless guid
