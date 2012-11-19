@@ -2,7 +2,7 @@ module CFoundry::V1
   class Runtime
     attr_accessor :name, :description, :debug_modes
 
-    def initialize(name, description = nil, debug_modes = nil)
+    def initialize(name, description = nil, debug_modes = [])
       @name = name
       @description = description
       @debug_modes = debug_modes
