@@ -57,6 +57,25 @@ module CFoundry
         :content => :json)
     end
 
+    def password_score(password)
+      response = post(
+        { :password => password },
+        "password", "score",
+        :return_response => true,
+        :content => :form,
+        :accept => :json
+      )
+      response = parse_json(response.body)
+      required_score = response[:requiredScore] || 0
+      case (response[:score] || 0)
+        when 10 then :strong
+        when 0..required_score then :weak
+        when required_score..9 then :good
+        else
+          :weak
+      end
+    end
+
     private
 
     def handle_response(response, accept)
