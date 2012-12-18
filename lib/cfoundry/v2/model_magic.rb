@@ -223,15 +223,14 @@ module CFoundry::V2
         @manifest[:entity] ||= {}
 
         old = @manifest[:entity][:"#{name}_guid"]
-        if old != val.guid
-          old_obj = klass.new(@client, old, @manifest[:entity][name])
+        if old != (val && val.guid)
+          old_obj = @cache[name] || klass.new(@client, old, @manifest[:entity][name])
 
           @changes[name] = [old_obj, val]
         end
 
         @cache[name] = val
 
-        @manifest[:entity][name] = val.manifest
         @manifest[:entity][:"#{name}_guid"] =
           @diff[:"#{name}_guid"] = val && val.guid
       end
@@ -327,15 +326,16 @@ module CFoundry::V2
         old = @manifest[:entity][:"#{singular}_guids"]
         if old != xs.collect(&:guid)
           old_objs =
-            if all = @manifest[:entity][plural]
-              all.collect do |m|
-                klass.new(@client, m[:metadata][:guid], m)
+            @cache[plural] ||
+              if all = @manifest[:entity][plural]
+                all.collect do |m|
+                  klass.new(@client, m[:metadata][:guid], m)
+                end
+              elsif old
+                old.collect { |id| klass.new(@client, id) }
               end
-            elsif old
-              old.collect { |id| klass.new(@client, id) }
-            end
 
-          @changes[name] = [old_objs, xs]
+          @changes[plural] = [old_objs, xs]
         end
 
         @cache[plural] = xs
