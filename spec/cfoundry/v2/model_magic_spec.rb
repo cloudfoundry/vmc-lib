@@ -112,4 +112,39 @@ describe CFoundry::V2::ModelMagic do
       end
     end
   end
+
+  describe 'summarization' do
+    let(:mymodel) { fake_model { attribute :foo, :string } }
+
+    subject { myobject }
+
+    describe '#summary' do
+      let(:summary_endpoint) {
+        [ client.target,
+          "v2",
+          mymodel.plural_object_name,
+          myobject.guid,
+          "summary"
+        ].join("/")
+      }
+
+      it 'returns the summary endpoint payload' do
+        req = stub_request(:get, summary_endpoint).to_return :status => 200,
+          :body => "{ \"foo\": \"abcd\" }"
+
+        expect(subject.summary).to eq({ :foo => "abcd" })
+        expect(req).to have_been_requested
+      end
+    end
+
+    describe '#summarize!' do
+      it 'defines basic attributes via #summary' do
+        stub(subject).summary { { :foo => "abcd" } }
+
+        subject.summarize!
+
+        expect(subject.foo).to eq "abcd"
+      end
+    end
+  end
 end
