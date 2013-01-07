@@ -8,6 +8,8 @@ module CFoundry::V2
 
     queryable_by :name, :owning_organization_guid, :space_guid
 
+    has_summary
+
     # hide wildcard support for now
     private :wildcard=
   end
