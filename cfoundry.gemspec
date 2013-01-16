@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.version     = CFoundry::VERSION.dup
   s.authors     = ["Alex Suraci"]
   s.email       = ["asuraci@vmware.com"]
-  s.homepage    = "http://cloudfoundry.com/"
+  s.homepage    = "http://github.com/cloudfoundry/vmc-lib"
   s.summary     = %q{
     High-level library for working with the Cloud Foundry API.
   }
