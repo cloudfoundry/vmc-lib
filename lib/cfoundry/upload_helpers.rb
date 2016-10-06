@@ -41,9 +41,9 @@ module CFoundry
 
       prepare_package(path, tmpdir)
 
-      resources = determine_resources(tmpdir) if check_resources
-
       packed = CFoundry::Zip.pack(tmpdir, zipfile)
+
+      resources = determine_resources(tmpdir) if check_resources
 
       @client.base.upload_app(@guid, packed && zipfile, resources || [])
     ensure
